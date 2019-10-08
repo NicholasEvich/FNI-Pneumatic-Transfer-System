@@ -10,12 +10,6 @@
 
 #include <Arduino.h>
 #include <StepMotor.h>
-
-/* TO-DO
-figure out how to do classes with arduino
-figure out the interrupts for the buttons and the amplifier: these interrupts (or while loop) are the reasons I need getters for all these members
-figure out the "this" issue
-*/
  
 StepMotor::StepMotor() { //initializer list?
     pinMode(getPulsePin(), OUTPUT);
@@ -25,45 +19,77 @@ StepMotor::StepMotor() { //initializer list?
     pinMode(getSendPin(), INPUT);
     pinMode(getReturnPin(), INPUT);
     pinMode(getHomePin(), INPUT);
+
+    randomPos();
+    homeValve();
 }
 
-void StepMotor::microstep(int steps) {
-    for (int stepCounter = 0; stepCounter <= steps; stepCounter++) {
-        digitalWriteFast(getPulsePin(), HIGH);
-        delayMicroseconds(250);
-        digitalWriteFast(getPulsePin(), LOW);
-        delayMicroseconds(250);        
+// The purpose of this function is to start the valve at a random (not homed) position
+//    so that the homing function works consistently each time
+// If the valve starts at a "homed" position (of which there are many), then consistency
+//    will not exist
+void StepMotor::randomPos() {
+    Serial.print("Generating a random starting position before homing sequence executes\n");
+    for (int i = 0; i < random(50, 150); i++) {
+    digitalWrite(getPulsePin(), HIGH);
+    delay(25);
+    digitalWrite(getPulsePin(), LOW);
+    delay(25);
+    }
+    delay(1000);
+}
+
+void StepMotor::microstep(float deg) {
+    int steps = static_cast<int>(MICROSTEPS*(deg/360.0));
+    Serial.print("Stepping now\n");
+    for (int stepCounter = 0; stepCounter < steps; stepCounter++) {
+        digitalWrite(getPulsePin(), HIGH);
+        delay(10);
+        digitalWrite(getPulsePin(), LOW);
+        delay(10);    
+        Serial.print("Step\n");    
     }
 }
 
 void StepMotor::homeValve() {
-    while (digitalRead(getHomePin()) == LOW) {
+    Serial.print("Starting to home valve\n");
+    while (analogRead(getHomePin()) < 75) {
+        digitalWrite(getPulsePin(), HIGH);
+        delay(50);
+        digitalWrite(getPulsePin(), LOW);
+        delay(50);
+    }
+
+    // Hardcoded fix for valve fabrication imperfections
+    for (int i = 0; i < 11; i++) {
         digitalWrite(getPulsePin(), HIGH);
         delay(100);
         digitalWrite(getPulsePin(), LOW);
         delay(100);
     }
+    
+    Serial.print("Homing of DP Valve Complete\n");
 }
-
-// Possibly combine the send and return functions into one with one paramter, a boolean for the direction
 
 void StepMotor::sendSample() {
     // Turning the vacuum pump on through a solid-state relay
     digitalWrite(getRelayPin(), HIGH);
+    Serial.print("Vacuum pump started\n");
     // Waiting for the pump motor to reach full speed
     delay(5000);
+    Serial.print("Vacuum pump at full power, sending sample now\n");
 
     // Enabling the stepper motor. This step is for redundancy
-    digitalWriteFast(getEnabPin(), LOW);
+    // digitalWrite(getEnabPin(), LOW);
 
-    // The HIGH direction corresponds to _______
-    digitalWriteFast(getDirPin(), HIGH); // note the direction
+    // The HIGH direction corresponds to clockwise
+    digitalWrite(getDirPin(), HIGH);
 
-    // Step the motor ____ degrees to send the sample
-    microstep(100);
+    // Step the motor 67.5 degrees to send the sample
+    microstep(67.5); //for whatever reason I am not getting any suction here (the motor is not stepping)
 
     // Wait a set time for the sample to reach the end of the tube (this section of the code is subject to change)
-    delay(250);
+    delayMicroseconds(100);
 
     /* Pseudocode for what will actually happen at this point:
     - Step the motor back a little bit (call microstep function)
@@ -73,31 +99,34 @@ void StepMotor::sendSample() {
 
     // Shut the motor off
     digitalWrite(getRelayPin(), LOW);
+    delay(10000);
 
     // Return the direction pin to its initial value
-    digitalWrite(getDirPin(), LOW);
+    // digitalWrite(getDirPin(), LOW); 
 
     // Home valve before the next sample send/return so that there is a minimal wait time between command issue and execution
+    randomPos();
     homeValve();
 }
 
 void StepMotor::returnSample() {
     // Turning the vacuum pump on through a solid-state relay
     digitalWrite(getRelayPin(), HIGH);
+    Serial.print("Vacuum pump started\n");
     // Waiting for the pump motor to reach full speed
     delay(5000);
-
+    Serial.print("Vacuum pump at full power, sending sample now\n");
     // Enabling the stepper motor. This step is for redundancy
-    digitalWriteFast(getEnabPin(), LOW);
+    // digitalWrite(getEnabPin(), LOW);
 
-    // The LOW direction corresponds to _______
-    digitalWriteFast(getDirPin(), LOW); // note the direction
+    // The LOW direction corresponds to counterclockwise
+    digitalWrite(getDirPin(), LOW); // note the direction
 
-    // Step the motor ____ degrees to send the sample
-    microstep(100);
+    // Step the motor 67.5 degrees to return the sample
+    microstep(67.5);
 
     // Wait a set time for the sample to reach the end of the tube (this section of the code is subject to change)
-    delay(250);
+    delayMicroseconds(100);
 
     /* Pseudocode for what will actually happen at this point:
     - Step the motor back a little bit (call microstep function)
@@ -107,12 +136,10 @@ void StepMotor::returnSample() {
 
     // Shut the motor off
     digitalWrite(getRelayPin(), LOW);
+    delay(10000);
 
-    // Return the direction pin to its initial value
-    digitalWrite(getDirPin(), LOW);
-
-    // Home valve before the next sample send/return so that there is a minimal wait time between command issue and execution
-    homeValve();
+    // No need to randomize and home valve, as this will happen at the beginning of the next
+    // loop iteration at the creation of a new StepMotor object
 }
 
 //Getter methods aren't really needed, as none of these functions should be used outside of the class's own functions
@@ -147,4 +174,3 @@ byte StepMotor::getHomePin() {
 StepMotor::~StepMotor() {
     //clear pins/set them all to low voltage?
 }
-

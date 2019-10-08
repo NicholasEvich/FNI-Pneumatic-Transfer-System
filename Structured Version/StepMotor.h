@@ -18,7 +18,9 @@ class StepMotor {
 public:
     StepMotor(); 
 
-    void microstep(int);
+    void randomPos();
+
+    void microstep(float);
 
     void homeValve();
 
@@ -40,18 +42,18 @@ public:
 private:
     // Output pin for pulsing the stepper motor
     const byte PULSE_PIN = 44;
-    // Output pin for enabling the stepper motor
-    const byte ENAB_PIN = 42;
     // Output pin for setting the direction of rotation for the stepper motor
-    const byte DIR_PIN = 40;
+    const byte DIR_PIN = 42;
+    // Output pin for enabling the stepper motor
+    const byte ENAB_PIN = 40;
     // Output pin for switching the solid-state relay
-    const byte VACUUM_RELAY;
+    const byte VACUUM_RELAY = 50;
     // Input pin for sending samples down into the Fast Neutron Irradiator
-    const byte BUTTON_SEND;
+    const byte BUTTON_SEND = 30;
     // Input pin for returning samples from the Fast Neutron Irradiator
-    const byte BUTTON_RETURN;
+    const byte BUTTON_RETURN = 32;
     // Input pin for the photoelectric amplifier
-    const byte HOMING_SENSOR;
+    const byte HOMING_SENSOR = A1;
 };
 
 #endif
